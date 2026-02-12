@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rosies Game Vault</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --card-width: 240px;
+            --card-height: 330px;
+            --shine-opacity: 0;
+            --shine-pos-x: 50%;
+            --shine-pos-y: 50%;
+            --grid-color: rgba(59, 130, 246, 0.2); 
+        }
+
+        body {
+            background: #050510;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .bg-scene {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #050510 0%, #101030 100%);
+        }
+
+        .grid-plane {
+            position: absolute;
+            width: 200%;
+            height: 100%;
+            bottom: -50%;
+            left: -50%;
+            background-image: 
+                linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+                linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+            background-size: 80px 80px;
+            transform: perspective(400px) rotateX(60deg);
+            animation: grid-move 4s linear infinite;
+            mask-image: linear-gradient(to bottom, transparent, black 60%);
+        }
+
+        @keyframes grid-move {
+            0% { transform: perspective(400px) rotateX(60deg) translateY(0); }
+            100% { transform: perspective(400px) rotateX(60deg) translateY(80px); }
+        }
+
+        .ambient-glow {
+            position: absolute;
+            width: 60vw;
+            height: 40vh;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .museum-stage {
+            perspective: 1200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 400px; 
+            width: 100%;
+            position: relative;
+        }
+
+        .artifact-bundle {
+            position: relative;
+            display: flex;
+            align-items: center;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+        }
+
+        .game-case {
+            width: var(--card-width);
+            height: var(--card-height);
+            position: relative;
+            transform-style: preserve-3d;
+            transition: opacity 0.8s ease-in-out;
+            cursor: pointer;
+            border-radius: 16px;
+            background-size: cover;
+            background-position: center;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.8);
+            z-index: 20;
+            opacity: 0;
+        }
+
+        /* DLC Stacks */
+        .dlc-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 10;
+            transform: translateZ(-10px);
+        }
+        .dlc-stack-right { margin-left: -15px; }
+        .dlc-stack-left { margin-right: -15px; order: -1; }
+
+        /* Updated to Landscape for Store Headers */
+        .mini-dlc {
+            width: 86px;
+            height: 40px;
+            background-color: #1a1a2e;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            background-size: cover;
+            background-position: center;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.5);
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0;
+        }
+
+        .dlc-stack-right .mini-dlc { transform: translateX(-30px); }
+        .dlc-stack-left .mini-dlc { transform: translateX(30px); }
+
+        .mini-dlc.show {
+            opacity: 1;
+            transform: translateX(45px);
+        }
+        .dlc-stack-left .mini-dlc.show {
+            transform: translateX(-45px);
+        }
+
+        .game-case::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 16px;
+            background: radial-gradient(
+                circle at var(--shine-pos-x) var(--shine-pos-y), 
+                rgba(255,255,255,0.4) 0%, 
+                transparent 65%
+            );
+            pointer-events: none;
+            opacity: var(--shine-opacity);
+            transition: opacity 0.3s;
+        }
+
+        .legendary {
+            border: 2px solid rgba(255, 215, 0, 0.4);
+            box-shadow: 0 0 35px rgba(255, 215, 0, 0.2), 0 25px 50px rgba(0,0,0,0.9);
+        }
+
+        .fade-in { opacity: 1; }
+        .fade-out { opacity: 0; }
+
+        .fact-item {
+            transition: all 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+            transform: translateX(20px);
+            opacity: 0;
+        }
+        .fact-item.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .main-container {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: row; 
+            width: 100%;
+            max-width: 1100px;
+            height: 90vh;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            gap: 2.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .main-container {
+                flex-direction: column;
+                height: auto;
+                padding: 1.5rem;
+                gap: 1.5rem;
+                justify-content: center;
+            }
+            body { overflow-y: auto; align-items: flex-start; }
+            .museum-stage { min-height: 420px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-scene">
+        <div class="grid-plane"></div>
+        <div class="ambient-glow"></div>
+    </div>
+
+    <div class="main-container">
+        <div class="flex-[1] flex flex-col items-center justify-center space-y-4">
+            <div class="museum-stage">
+                <div id="artifactBundle" class="artifact-bundle">
+                    <div id="dlcStackLeft" class="dlc-stack dlc-stack-left"></div>
+                    <div id="gameCard" class="game-case"></div>
+                    <div id="dlcStackRight" class="dlc-stack dlc-stack-right"></div>
+                </div>
+            </div>
+            
+            <div class="text-center space-y-2">
+                <h2 id="gameTitle" class="text-3xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400"></h2>
+                <p id="gameCategory" class="text-blue-400 text-[10px] uppercase tracking-[0.3em] font-bold"></p>
+                <div id="priceBadge" class="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-blue-700 shadow-lg shadow-blue-900/40 border border-blue-400/30"></div>
+                <div id="dlcCount" class="text-[9px] text-gray-500 uppercase tracking-widest mt-1"></div>
+            </div>
+        </div>
+
+        <div class="flex-1 max-w-sm w-full flex flex-col justify-center space-y-6">
+            <div class="space-y-1.5">
+                <h3 class="text-[10px] uppercase tracking-[0.4em] text-blue-400 font-bold">Museum Artifact Log</h3>
+                <div class="h-1 w-12 bg-blue-500 rounded-full"></div>
+            </div>
+            
+            <div id="factContainer" class="space-y-3"></div>
+
+            <div class="pt-4 flex items-center space-x-6 text-[10px] text-gray-500 border-t border-white/5">
+                <div class="flex flex-col">
+                    <span class="mb-0.5 uppercase tracking-tighter">Vault Value</span>
+                    <span class="text-white font-mono text-xs font-bold" id="totalValueDisplay">$0.00 CAD</span>
+                </div>
+                <div class="h-8 w-px bg-white/10"></div>
+                <div class="flex flex-col">
+                    <span class="mb-0.5 uppercase tracking-tighter">Total Titles</span>
+                    <span class="text-white font-mono text-xs font-bold" id="totalCountDisplay">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const games = [
+            { title: "Abiotic Factor", category: "Action & Adventure", price: 32.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/427410/library_600x900.jpg" },
+            { title: "Anarcute", category: "Action & Adventure", price: 17.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/390720/library_600x900.jpg" },
+            { title: "Bendy and the Ink Machine", category: "Action & Adventure", price: 22.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/622650/library_600x900.jpg" },
+            { title: "Donkey Kong Bananza", category: "Action & Adventure", price: 89.99, rarity: "legendary", img: "https://placehold.co/600x900/6b4e31/white?text=DK+Bananza", dlcs: [{ title: "Banandium Gem Tracker DLC", price: 14.99, img: "https://placehold.co/600x900/daa520/white?text=Banandium+DLC" }] },
+            { title: "DREDGE", category: "Action & Adventure", price: 32.50, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1562430/library_600x900.jpg", dlcs: [{ title: "Digital Deluxe Edition", price: 12.00, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2630980/header.jpg" }, { title: "The Iron Rig", price: 15.50, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2478800/header.jpg" }, { title: "The Pale Reach", price: 7.50, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2630970/header.jpg" }] },
+            { title: "Hollow Knight", category: "Action & Adventure", price: 19.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/367520/library_600x900.jpg" },
+            { title: "Hollow Knight: Silksong", category: "Action & Adventure", price: 25.99, rarity: "legendary", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1030300/library_600x900.jpg" },
+            { title: "I am Fish", category: "Action & Adventure", price: 18.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1360570/library_600x900.jpg" },
+            { title: "Just Shapes & Beats", category: "Action & Adventure", price: 19.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/531510/library_600x900.jpg" },
+            { title: "No Man's Sky", category: "Action & Adventure", price: 69.99, rarity: "legendary", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/275850/library_600x900.jpg" },
+            { title: "Peaks of Yore", category: "Action & Adventure", price: 22.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2236070/library_600x900.jpg" },
+            { title: "Rain World", category: "Action & Adventure", price: 32.50, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/312520/library_600x900.jpg", dlcs: [{ title: "Downpour", price: 19.50, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1933390/header.jpg" }, { title: "The Watcher", price: 15.00, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2835570/header.jpg" }] },
+            { title: "SteamWorld Dig", category: "Action & Adventure", price: 13.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/252410/library_600x900.jpg" },
+            { title: "SteamWorld Dig 2", category: "Action & Adventure", price: 22.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/571310/library_600x900.jpg" },
+            { title: "Stray", category: "Action & Adventure", price: 36.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1332010/library_600x900.jpg" },
+            { title: "Tell Me Why", category: "Action & Adventure", price: 0.00, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1180660/library_600x900.jpg" },
+            { title: "The Legend of Zelda: Breath of the Wild", category: "Action & Adventure", price: 79.99, rarity: "legendary", img: "https://assets.nintendo.com/image/upload/f_auto/q_auto/dpr_2.0/c_scale,w_600/ncom/en_US/games/switch/t/the-legend-of-zelda-breath-of-the-wild-switch/hero" },
+            { title: "The Legend of Zelda: Tears of the Kingdom", category: "Action & Adventure", price: 79.99, rarity: "legendary", img: "https://assets.nintendo.com/image/upload/f_auto/q_auto/dpr_2.0/c_scale,w_600/ncom/en_US/games/switch/t/the-legend-of-zelda-tears-of-the-kingdom-switch/hero" },
+            { title: "20 Minutes Till Dawn", category: "Automation & Strategy", price: 12.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1966900/library_600x900.jpg" },
+            { title: "Balatro", category: "Automation & Strategy", price: 19.50, rarity: "legendary", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2379780/library_600x900.jpg" },
+            { title: "Brotato", category: "Automation & Strategy", price: 7.79, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1942280/library_600x900.jpg", dlcs: [{ title: "Abyssal Terrors", price: 4.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2593270/header.jpg" }] },
+            { title: "Factorio", category: "Automation & Strategy", price: 45.00, rarity: "legendary", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/427520/library_600x900.jpg", dlcs: [{ title: "Space Age", price: 47.00, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2883620/header.jpg" }] },
+            { title: "Hytale + Supporter Edition", category: "Automation & Strategy", price: 0.00, img: "https://placehold.co/600x900/1a3a2a/white?text=Hytale", dlcs: [{ title: "Supporter Edition", price: 0.00, img: "https://placehold.co/600x900/1a3a2a/white?text=Hytale%0ASupporter" }] },
+            { title: "Satisfactory", category: "Automation & Strategy", price: 51.99, rarity: "legendary", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/526870/library_600x900.jpg" },
+            { title: "shapez", category: "Automation & Strategy", price: 24.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1318690/library_600x900.jpg", dlcs: [{ title: "Puzzle DLC", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1510730/header.jpg" }] },
+            { title: "shapez 2", category: "Automation & Strategy", price: 32.99, rarity: "legendary", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2162800/library_600x900.jpg", dlcs: [{ title: "Supporter Edition", price: 15.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2694530/header.jpg" }] },
+            { title: "Vampire Survivors", category: "Automation & Strategy", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1794680/library_600x900.jpg" },
+            { title: "60 Parsecs!", category: "Horror & Survival", price: 19.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/646980/header.jpg" },
+            { title: "BIGFOOT", category: "Horror & Survival", price: 18.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/509980/library_600x900.jpg" },
+            { title: "Content Warning", category: "Horror & Survival", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2881650/library_600x900.jpg" },
+            { title: "Don't Starve", category: "Horror & Survival", price: 16.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/219740/library_600x900.jpg", dlcs: [{ title: "Hamlet", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/623770/header.jpg" }, { title: "Reign of Giants", price: 5.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/257490/header.jpg" }, { title: "Shipwrecked", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/378450/header.jpg" }] },
+            { title: "Don't Starve Together", category: "Horror & Survival", price: 18.49, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/322330/library_600x900.jpg", dlcs: [{ title: "Starter Pack 2023", price: 10.50, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2032040/header.jpg" }, { title: "Wortox Deluxe Chest", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1109490/header.jpg" }] },
+            { title: "Lethal Company", category: "Horror & Survival", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1966720/library_600x900.jpg" },
+            { title: "Phasmophobia", category: "Horror & Survival", price: 18.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/739630/library_600x900.jpg" },
+            { title: "Resident Evil HD REMASTER", category: "Horror & Survival", price: 24.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/304240/library_600x900.jpg" },
+            { title: "Resident Evil 0 HD Remaster", category: "Horror & Survival", price: 24.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/339340/library_600x900.jpg" },
+            { title: "Resident Evil 5 Gold Edition", category: "Horror & Survival", price: 29.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/21690/library_600x900.jpg" },
+            { title: "Resident Evil 6 Complete", category: "Horror & Survival", price: 29.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/221040/library_600x900.jpg" },
+            { title: "Subnautica", category: "Horror & Survival", price: 36.99, rarity: "legendary", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/264710/library_600x900.jpg" },
+            { title: "Subnautica: Below Zero", category: "Horror & Survival", price: 36.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/848450/library_600x900.jpg" },
+            { title: "The Survivalists", category: "Horror & Survival", price: 29.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/897300/header.jpg" },
+            { title: "FNaF 1: Pocket Edition", category: "Horror & Survival", price: 3.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/319510/library_600x900.jpg" },
+            { title: "Animal Crossing: New Horizons", category: "Management & Simulation", price: 79.99, rarity: "legendary", img: "https://assets.nintendo.com/image/upload/f_auto/q_auto/dpr_2.0/c_scale,w_600/ncom/en_US/games/switch/a/animal-crossing-new-horizons-switch/hero", dlcs: [{ title: "Happy Home Paradise", price: 32.99, img: "https://assets.nintendo.com/image/upload/f_auto/q_auto/dpr_2.0/c_scale,w_600/ncom/en_US/games/switch/a/animal-crossing-new-horizons-happy-home-paradise-switch/hero" }, { title: "Switch 2 Upgrade Pack", price: 9.99, img: "https://placehold.co/600x900/73b2b8/white?text=NSW2+Upgrade" }] },
+            { title: "Barista Simulator", category: "Management & Simulation", price: 18.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1694510/library_600x900.jpg" },
+            { title: "Cities: Skylines", category: "Management & Simulation", price: 39.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/255710/library_600x900.jpg", dlcs: [{ title: "Mass Transit", price: 14.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/583980/header.jpg" }, { title: "Natural Disasters", price: 14.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/481140/header.jpg" }, { title: "Modern City Center", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/547500/header.jpg" }, { title: "University City", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/693011/header.jpg" }, { title: "Downtown Radio", price: 4.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1493130/header.jpg" }] },
+            { title: "Cooking Simulator", category: "Management & Simulation", price: 22.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/641320/library_600x900.jpg", dlcs: [{ title: "Cakes and Cookies", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1059630/header.jpg" }, { title: "Pizza", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1005410/header.jpg" }, { title: "Sushi", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1502800/header.jpg" }, { title: "Chaos Tool", price: 0.00, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1201710/header.jpg" }, { title: "Cooking with Food Network", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1227530/header.jpg" }, { title: "Shelter", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1201720/header.jpg" }] },
+            { title: "Game Dev Tycoon", category: "Management & Simulation", price: 14.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/239820/library_600x900.jpg" },
+            { title: "Going Medieval", category: "Management & Simulation", price: 32.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1029780/library_600x900.jpg" },
+            { title: "Good Company", category: "Management & Simulation", price: 27.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/911430/library_600x900.jpg" },
+            { title: "Hydroneer", category: "Management & Simulation", price: 22.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1106840/library_600x900.jpg" },
+            { title: "Let's Build a Zoo", category: "Management & Simulation", price: 22.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1547890/library_600x900.jpg", dlcs: [{ title: "Aquarium Odyssey", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1893420/header.jpg" }, { title: "Dinosaur Island", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1779280/header.jpg" }] },
+            { title: "Lobotomy Corporation", category: "Management & Simulation", price: 22.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/568220/library_600x900.jpg" },
+            { title: "My Dream Setup", category: "Management & Simulation", price: 18.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2200780/library_600x900.jpg", dlcs: [{ title: "Bathroom", price: 4.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2273010/header.jpg" }, { title: "Garage", price: 4.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2273020/header.jpg" }, { title: "Kitchen", price: 4.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2273000/header.jpg" }, { title: "Pets", price: 4.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2463570/header.jpg" }, { title: "Sim Racing", price: 4.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2463580/header.jpg" }] },
+            { title: "Oxygen Not Included", category: "Management & Simulation", price: 29.99, rarity: "legendary", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/457140/library_600x900.jpg", dlcs: [{ title: "Spaced Out!", price: 16.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1401480/header.jpg" }, { title: "Bionic Booster", price: 5.49, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2550700/header.jpg" }, { title: "Frosty Planet", price: 5.49, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2550710/header.jpg" }, { title: "Prehistoric Planet", price: 5.49, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2550720/header.jpg" }, { title: "Neutronium Cosmetics", price: 5.49, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2550730/header.jpg" }] },
+            { title: "Prison Architect", category: "Management & Simulation", price: 36.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/233450/library_600x900.jpg", dlcs: [{ title: "Gangs", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1084190/header.jpg" }, { title: "Going Green", price: 12.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1128630/header.jpg" }, { title: "Island Bound", price: 12.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1139230/header.jpg" }, { title: "Future Tech", price: 3.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1139250/header.jpg" }, { title: "Second Chances", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1139260/header.jpg" }, { title: "Psych Ward", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1139270/header.jpg" }, { title: "Undead", price: 3.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1139280/header.jpg" }, { title: "Perfect Storm", price: 12.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1139300/header.jpg" }, { title: "Jungle Pack", price: 3.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1139310/header.jpg" }, { title: "Aficionado", price: 0.00, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1139320/header.jpg" }] },
+            { title: "Slime Rancher", category: "Management & Simulation", price: 22.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/433340/library_600x900.jpg" },
+            { title: "Slime Rancher 2", category: "Management & Simulation", price: 38.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1657630/library_600x900.jpg" },
+            { title: "Spore", category: "Management & Simulation", price: 22.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/17390/library_600x900.jpg", dlcs: [{ title: "Creepy & Cute", price: 12.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/17390/header.jpg" }, { title: "Galactic Adventures", price: 25.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/9480/header.jpg" }] },
+            { title: "Supermarket Simulator", category: "Management & Simulation", price: 16.79, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2670630/library_600x900.jpg" },
+            { title: "The Final Earth 2", category: "Management & Simulation", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1180130/library_600x900.jpg" },
+            { title: "The Wandering Village", category: "Management & Simulation", price: 27.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1121640/library_600x900.jpg" },
+            { title: "Thief Simulator (NSW)", category: "Management & Simulation", price: 22.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/704850/library_600x900.jpg" },
+            { title: "Timberborn", category: "Management & Simulation", price: 29.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1062090/library_600x900.jpg" },
+            { title: "Minecraft: Java Edition", category: "Minecraft Collection", price: 39.99, rarity: "legendary", img: "https://placehold.co/600x900/226622/white?text=Minecraft+Java" },
+            { title: "Minecraft: Windows Edition", category: "Minecraft Collection", price: 39.99, rarity: "legendary", img: "https://placehold.co/600x900/226622/white?text=Minecraft+Windows" },
+            { title: "Minecraft Dungeons", category: "Minecraft Collection", price: 29.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1672970/library_600x900.jpg", dlcs: [{ title: "Jungle Awakens", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1833070/header.jpg" }, { title: "Creeping Winter", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1833080/header.jpg" }, { title: "Howling Peaks", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1833090/header.jpg" }, { title: "Flames of Nether", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1833100/header.jpg" }, { title: "Hidden Depths", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1833110/header.jpg" }, { title: "Echoing Void", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1833120/header.jpg" }] },
+            { title: "Cult of the Lamb", category: "Nintendo / Platformer", price: 29.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1313140/library_600x900.jpg", dlcs: [{ title: "Cultist Pack", price: 6.49, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1922730/header.jpg" }, { title: "Heretic Pack", price: 6.49, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2225560/header.jpg" }, { title: "Sinful Pack", price: 6.49, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2492740/header.jpg" }] },
+            { title: "The Binding of Isaac: Rebirth", category: "Nintendo / Platformer", price: 17.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/250900/library_600x900.jpg", dlcs: [{ title: "Afterbirth", price: 12.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/401920/header.jpg" }, { title: "Afterbirth+", price: 12.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/570030/header.jpg" }, { title: "Repentance", price: 19.50, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1426300/header.jpg" }] },
+            { title: "Pokémon Legends: Z-A", category: "Pokémon Collection", price: 89.99, rarity: "legendary", img: "https://placehold.co/600x900/222/white?text=Pokemon+ZA", dlcs: [{ title: "Switch 2 Upgrade Pack", price: 0.00, img: "https://placehold.co/600x900/3c3c8c/white?text=NSW2+Upgrade" }] },
+            { title: "Pokémon Scarlet", category: "Pokémon Collection", price: 79.99, rarity: "legendary", img: "https://assets.nintendo.com/image/upload/f_auto/q_auto/dpr_2.0/c_scale,w_600/ncom/en_US/games/switch/p/pokemon-scarlet-switch/hero", zoomFix: true, dlcs: [{ title: "Area Zero DLC", price: 44.99 }] },
+            { title: "Pokémon Violet", category: "Pokémon Collection", price: 79.99, rarity: "legendary", img: "https://assets.nintendo.com/image/upload/f_auto/q_auto/dpr_2.0/c_scale,w_600/ncom/en_US/games/switch/p/pokemon-violet-switch/hero", zoomFix: true, dlcs: [{ title: "Area Zero DLC", price: 44.99 }] },
+            { title: "Pokémon Sword", category: "Pokémon Collection", price: 79.99, img: "https://assets.nintendo.com/image/upload/f_auto/q_auto/dpr_2.0/c_scale,w_600/ncom/en_US/games/switch/p/pokemon-sword-switch/hero", dlcs: [{ title: "Expansion Pass", price: 39.99 }] },
+            { title: "Pokémon Shield", category: "Pokémon Collection", price: 79.99, img: "https://assets.nintendo.com/image/upload/f_auto/q_auto/dpr_2.0/c_scale,w_600/ncom/en_US/games/switch/p/pokemon-shield-switch/hero", dlcs: [{ title: "Expansion Pass", price: 39.99 }] },
+            { title: "Bloons TD 6", category: "Puzzle & Casual", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/960090/library_600x900.jpg", dlcs: [{ title: "Rogue Legends", price: 5.49 }, { title: "Frontier Legends", price: 5.49 }] },
+            { title: "Cattails", category: "Puzzle & Casual", price: 14.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/634160/library_600x900.jpg", dlcs: [{ title: "Deluxe Content", price: 6.99 }] },
+            { title: "Mario Kart 8 Deluxe", category: "Puzzle & Casual", price: 79.99, rarity: "legendary", img: "https://assets.nintendo.com/image/upload/f_auto/q_auto/dpr_2.0/c_scale,w_600/ncom/en_US/games/switch/m/mario-kart-8-deluxe-switch/hero", dlcs: [{ title: "Booster Course Pass", price: 32.99 }] },
+            { title: "Placid Plastic Duck Simulator", category: "Puzzle & Casual", price: 2.50, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1999360/library_600x900.jpg", dlcs: [{ title: "Duck Addiction", side: 'left' }, { title: "Ducks Galore", side: 'left' }, { title: "Ducks, Please", side: 'left' }, { title: "Hippospace", side: 'left' }, { title: "Quacking Ice" }, { title: "Rooftop" }, { title: "So Many Ducks" }, { title: "Virtual Thermae" }] },
+            { title: "Assetto Corsa", category: "Racing & Sandbox", price: 22.79, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/244210/library_600x900.jpg", dlcs: [{ title: "Dream Pack 1", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/302530/header.jpg", side: 'left' }, { title: "Dream Pack 2", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/344750/header.jpg", side: 'left' }, { title: "Dream Pack 3", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/367250/header.jpg", side: 'left' }, { title: "Ferrari Pack", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/410700/header.jpg", side: 'left' }, { title: "Japanese Pack", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/475800/header.jpg", side: 'left' }, { title: "DP6", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1391520/header.jpg", side: 'left' }, { title: "Porsche I", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/529260/header.jpg" }, { title: "Porsche II", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/529265/header.jpg" }, { title: "Porsche III", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/529266/header.jpg" }, { title: "Red Pack", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/475250/header.jpg" }, { title: "Ready to Race", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/529270/header.jpg" }] },
+            { title: "Forza Horizon 4", category: "Racing & Sandbox", price: 69.99, rarity: "legendary", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1293830/library_600x900.jpg", dlcs: [{ title: "Hot Wheels", price: 12.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1491640/header.jpg" }, { title: "Treasure Map", price: 3.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1491630/header.jpg" }] },
+            { title: "Forza Horizon 5", category: "Racing & Sandbox", price: 69.99, rarity: "legendary", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1551360/library_600x900.jpg", dlcs: [{ title: "American Automotive", price: 12.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2177460/header.jpg" }, { title: "Italian Exotics", price: 12.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2177480/header.jpg" }, { title: "Fast X Car Pack", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2446460/header.jpg" }] },
+            { title: "The Sims 4", category: "Other", price: 0.00, rarity: "legendary", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1222670/library_600x900.jpg", dlcs: [{ title: "All DLCs Owned", price: 0.00 }] },
+            { title: "Hatsune Miku: Mega Mix+", category: "Other", price: 32.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1761390/library_600x900.jpg", dlcs: [{ title: "Extra Songs Pack", price: 15.00 }] },
+            
+
+            // Nintendo / Platformer / Roguelike additions
+            { title: "Geometry Dash", category: "Nintendo / Platformer", price: 4.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/322170/library_600x900.jpg" },
+            { title: "Super Mario Bros. U Deluxe", category: "Nintendo / Platformer", price: 79.99, img: "https://placehold.co/600x900/d63b1f/white?text=NSMBU+Deluxe" },
+            { title: "Super Mario Maker 2", category: "Nintendo / Platformer", price: 79.99, img: "https://placehold.co/600x900/e8b000/white?text=Mario+Maker+2" },
+
+            // Pokémon additions
+            { title: "Pokémon Legends: Arceus", category: "Pokémon Collection", price: 79.99, img: "https://assets.nintendo.com/image/upload/f_auto/q_auto/dpr_2.0/c_scale,w_600/ncom/en_US/games/switch/p/pokemon-legends-arceus-switch/hero", zoomFix: true },
+            { title: "Pokémon Let's Go, Eevee!", category: "Pokémon Collection", price: 79.99, img: "https://assets.nintendo.com/image/upload/f_auto/q_auto/dpr_2.0/c_scale,w_600/ncom/en_US/games/switch/p/pokemon-lets-go-eevee-switch/hero", zoomFix: true },
+            { title: "Pokémon Pearl", category: "Pokémon Collection", price: 79.99, img: "https://assets.nintendo.com/image/upload/f_auto/q_auto/dpr_2.0/c_scale,w_600/ncom/en_US/games/switch/p/pokemon-brilliant-diamond-switch/hero", zoomFix: true },
+
+            // Puzzle, Casual & Party additions
+            { title: "Aperture Desk Job", category: "Puzzle & Casual", price: 0.00, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1902490/library_600x900.jpg" },
+            { title: "Cat Goes Fishing", category: "Puzzle & Casual", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/289700/library_600x900.jpg" },
+            { title: "Cookie Clicker", category: "Puzzle & Casual", price: 7.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1454400/library_600x900.jpg" },
+            { title: "Keep Talking and Nobody Explodes", category: "Puzzle & Casual", price: 18.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/341800/library_600x900.jpg" },
+            { title: "Mario Kart World", category: "Puzzle & Casual", price: 89.99, rarity: "legendary", img: "https://placehold.co/600x900/e00/white?text=Mario+Kart+World" },
+            { title: "Mini Metro", category: "Puzzle & Casual", price: 14.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/287980/library_600x900.jpg" },
+            { title: "Mini Motorways", category: "Puzzle & Casual", price: 14.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1127500/library_600x900.jpg" },
+            { title: "OMORI", category: "Puzzle & Casual", price: 22.99, rarity: "legendary", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1150690/library_600x900.jpg" },
+            { title: "Stardew Valley", category: "Puzzle & Casual", price: 19.99, rarity: "legendary", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/413150/library_600x900.jpg" },
+            { title: "Super Mario Party", category: "Puzzle & Casual", price: 79.99, img: "https://assets.nintendo.com/image/upload/f_auto/q_auto/dpr_2.0/c_scale,w_600/ncom/en_US/games/switch/s/super-mario-party-switch/hero", zoomFix: true },
+            { title: "Townscaper", category: "Puzzle & Casual", price: 7.79, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1291340/library_600x900.jpg" },
+            { title: "Turmoil", category: "Puzzle & Casual", price: 12.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/361280/library_600x900.jpg", dlcs: [{ title: "The Heat Is On", price: 6.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/396200/header.jpg" }] },
+            { title: "Wobbledogs", category: "Puzzle & Casual", price: 18.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/1424330/library_600x900.jpg" },
+
+            // Racing & Sandbox additions
+            { title: "Garry's Mod", category: "Racing & Sandbox", price: 12.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/4000/library_600x900.jpg" },
+            { title: "People Playground", category: "Racing & Sandbox", price: 9.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/841090/library_600x900.jpg" },
+            { title: "Scrap Mechanic", category: "Racing & Sandbox", price: 27.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/387990/library_600x900.jpg" },
+            { title: "Terraria", category: "Racing & Sandbox", price: 13.99, rarity: "legendary", img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/105600/library_600x900.jpg" },
+
+            // VR Collection
+            { title: "Elven Assassin", category: "VR Collection", price: 22.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/503800/library_600x900.jpg", dlcs: [{ title: "Added Map DLC", price: 4.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/575790/header.jpg" }] },
+            { title: "Job Simulator", category: "VR Collection", price: 22.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/448280/library_600x900.jpg" },
+            { title: "Please, Don't Touch Anything VR", category: "VR Collection", price: 12.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/568830/library_600x900.jpg" },
+            { title: "Thief Simulator VR", category: "VR Collection", price: 22.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/978410/library_600x900.jpg" },
+
+            // Management & Simulation additions
+            { title: "Supermarket Together", category: "Management & Simulation", price: 13.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/2689810/library_600x900.jpg" },
+
+            // Minecraft Collection additions
+            { title: "Minecraft: Nintendo Switch Edition", category: "Minecraft Collection", price: 39.99, rarity: "legendary", img: "https://placehold.co/600x900/226622/white?text=MC+Switch" },
+            { title: "Minecraft: Pocket Edition", category: "Minecraft Collection", price: 9.99, img: "https://placehold.co/600x900/226622/white?text=MC+Pocket" },
+            { title: "Minecraft Legends: Deluxe Edition", category: "Minecraft Collection", price: 44.99, img: "https://placehold.co/600x900/3d2b5e/white?text=MC+Legends" },
+
+            // Software & Other additions
+            { title: "Among Us", category: "Other", price: 5.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/945360/library_600x900.jpg" },
+            { title: "Aseprite", category: "Other", price: 22.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/431730/library_600x900.jpg" },
+            { title: "Discord Bot Builder", category: "Other", price: 9.99, img: "https://placehold.co/600x900/5865f2/white?text=Discord+Bot+Builder" },
+            { title: "Wallpaper Engine", category: "Other", price: 5.99, img: "https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/431960/library_600x900.jpg" },
+
+            // Hidden from Carousel, but included in Math
+            { title: "Stardew OST", price: 12.99, hidden: true },
+            { title: "UNDERTALE OST", price: 9.99, hidden: true },
+            { title: "Celeste OST", price: 9.99, hidden: true },
+            { title: "COTL OST", price: 12.99, hidden: true },
+            { title: "ONI OST", price: 12.99, hidden: true },
+            { title: "OMORI OST", price: 14.99, hidden: true },
+            { title: "Cattails OST", price: 6.99, hidden: true },
+            { title: "Wandering Village OST", price: 6.99, hidden: true }
+        ];
+
+        const facts = [
+            "Abiotic Factor was a valentines gift from my boyfriend",
+            "Abiotic Factor was a game first introduced to me in it's early early beta",
+            "Anarcute is a game I was aware of for longer than most games I own",
+            "Bendy and the Ink machine is a game I know forwards and back, but have yet to play",
+            "Donkey Kong Bananza is one of 2 AAA games I own on nintendo hardware without a cartridge",
+            "Dredge Is one of my all time favorite games, gifted to me by my boyfriend for 2025 Christmas",
+            "Hollow Knight took me 20 hours to beat on my first playthrough, with cheats. I have since gotten much better at games",
+            "Silksong is a game I first didn't like, but I grew to like it a bit more than hollow knight",
+            "I am Fish is a game I couldnt play when I first got it, My laptop overheated and could not run it",
+            "Just Shapes and Beats is my favorite example of a story being told with symbols, and is an amazing game",
+            "No Man's Sky was first introduced to me at a place where you could pay 5$ an hour to play games, I was hooked immediately",
+            "Peaks of Yore is a game I liked after watching Astral Spiffs Vods on it, and my Boyfriend got it for me to play when on vacation and away from home",
+            "Rain World is a game I exclusively play on the steam deck",
+            "Steamworld Dig and Steamworld Dig 2 are titles I own on both steam and Nintendo Switch",
+            "Stray was a christmas gift from my boyfriend, I didnt want to play it for its short playtime, but It ended up being the only game to ever make me cry at the ending",
+            "The Legend Of Zelda; Breath of the Wild Is a game that took me ages to get into, and I had the same issue with the sequel",
+            "I got Balatro exclusively because Don't Starve Together did a cross over",
+            "Factorio is my most recently purchased game, but quickly becoming a favorite",
+            "I was recommended Factorio for years before I got it",
+            "Shapez is a game I got just for the sake of it, and ended up with too many hours of playtime",
+            "My boyfriend got me shapes 2 for valentines day after knowing how much I enjoyed Shapez",
+            "I got Vampire Survivors after the amount I play Brotato on the steam deck",
+            "In addition to 60 Parasecs, I own 60 seconds on my phone",
+            "Bigfoot is a game I have never played singleplayer",
+            "Content Warning is a game I exclusively got to play with my boyfriend",
+            "I have never played the original Don't Starve past day 2",
+            "For a long time, Don't Starve Together was my most played game",
+            "I only bought Don't Starve Together because It did a crossover with Terraria",
+            "In Don't Starve Together I main Wurt",
+            "Lethal company is probably the game that Im worst at that I have played a decent amount",
+            "I have nearly 70 hours in phasmophobia exclusively with my boyfriend, and then an additional 70 with others",
+            "I owned Subnatica and Below Zero on the switch, but got it again on steam for the sake of mods",
+            "The Survivalists is a game I knew like the back of my hand, but I barely know the recent versions",
+            "I have had 3 total island in Animal Crossing: New Horizens",
+            "Barista Simulator is a game that I nearly 100% completed in one sitting",
+            "Going Medieval is a game I have been supporting since it first released in early access",
+            "Good company is a game I never really played much",
+            "Hydroneer is a game I want to get into but can never do a playthrough long enough to do so",
+            "I have only ever had one successful run in Lets Build a zoo",
+            "Lobotomy Corporation is one of the first gifts my boyfriend ever got me",
+            "Despite liking Lobotomy Corporation, I am not into the series it's from",
+            "Oxygen Not Included is possibly my favorite game of all time",
+            "It took me 900 hours to fully beat oxygen not included",
+            "I currently have almost 1500 hours in Oxygen not included",
+            "Prison Architect was a game I love despite all of its bugs",
+            "I went into Slime Rancher mostly blind, and I do not think I played the game properly",
+            "Spore was one of the first games I ever wanted",
+            "I never made it past the space age in spore, the game always crashes",
+            "Supermarket simulator was a game I picked up on launch day, and I played it before Markiplier",
+            "I used to play the final earth 2 in school on coolmath, and decided to buy the full game on steam later",
+            "I am the first recorded person to get the Onbu ending in the wandering village",
+            "I was a playtester for the wandering village",
+            "I still own a license of the playtest version of the wandering Village to this day",
+            "Thief Simulator was my first ever game with a drivable car",
+            "Cult of the lamb is a game I sucked at on my first playthrough, but I loved the game on my second years later",
+            "The Binding of Issac Rebirth is a game I love, but I have no clue what Im doing in it",
+            "I own nearly every pokemon game for the switch",
+            "I have over 400 hours on Bloons TD6",
+            "Keep talking and nobody explodes is a game I got for my boyfriend and myself for christmas one year",
+            "My favorite track in Mario Kart 8 deluxe is Waluigis Pinball",
+            "I prefer mini motorways over mini metro",
+            "I have lost my entire Omori save file 3 times and have yet to get the motivation to beat the game",
+            "In Placid Plastic Duck Simulator, the pinkish reddish's duck name is Fred :)",
+            "I own stardew valley on 3 different devices",
+            "Super Mario Party came with the switch I bought after my old one broke",
+            "I have never once beat turmoil nor it's dlc",
+            "Wobbledogs is my favorite game to play in bed at night",
+            "I have never played Asseta Corza",
+            "Forza Horizon 4 and 5 are both games I pick up and casually play, I have never seriously done them",
+            "To this day I dont know what you can do in Garrys Mod, yet everyone has it",
+            "People's Playground is my favorite 2d sandbox",
+            "I have wanted Scrap Mechanic since I first saw it when it came out",
+            "Terraria used to be my most played game, until I got don't starve together",
+            "The only reason I have so many hours on terraria is that I don't know what I'm doing",
+            "I think the only reason Im good at Elvin Assasin is that I have so much real life archery practice",
+            "Aseprite is my favorite art program, would reccomend",
+            "I own 8 OST's",
+            "I have over 1000 hours shiny hunting",
+            "I own 5 devices that I use to play games"
+        ];
+
+        let shuffledGames = [];
+        let shuffledFacts = [];
+        let currentGameIdx = 0;
+        let currentFactIdx = 0;
+
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        const visibleGames = games.filter(g => !g.hidden);
+        
+        function refreshShuffles() {
+            shuffledGames = shuffle([...Array(visibleGames.length).keys()]);
+            shuffledFacts = shuffle([...Array(facts.length).keys()]);
+        }
+
+        // --- NEW PRELOAD LOGIC START ---
+        function preloadImage(url) {
+            if (!url) return;
+            const img = new Image();
+            img.src = url;
+        }
+
+        function preloadNextSlides() {
+            // Look ahead 3 spots
+            for (let i = 1; i <= 3; i++) {
+                // Use modulo (%) to wrap around to the start if we hit the end of the list
+                const nextIndex = (currentGameIdx + i) % shuffledGames.length;
+                const nextGame = visibleGames[shuffledGames[nextIndex]];
+
+                // 1. Preload Main Game Image
+                if (nextGame && nextGame.img) {
+                    preloadImage(nextGame.img);
+                }
+
+                // 2. Preload DLC Images (if any)
+                if (nextGame && nextGame.dlcs) {
+                    nextGame.dlcs.forEach(dlc => {
+                        if (dlc.img) {
+                            preloadImage(dlc.img);
+                        }
+                    });
+                }
+            }
+        }
+        // --- NEW PRELOAD LOGIC END ---
+
+        function calculateVault() {
+            let total = 0;
+            games.forEach(g => {
+                total += g.price || 0;
+                if (g.dlcs) g.dlcs.forEach(d => total += d.price || 0);
+            });
+            document.getElementById('totalValueDisplay').innerText = `$${total.toFixed(2)} CAD`;
+            document.getElementById('totalCountDisplay').innerText = games.length;
+        }
+
+        function updateFacts() {
+            const container = document.getElementById('factContainer');
+            container.innerHTML = '';
+            
+            for (let i = 0; i < 3; i++) {
+                const idx = shuffledFacts[currentFactIdx];
+                const div = document.createElement('div');
+                div.className = 'fact-item glass-panel p-3 rounded-xl text-[10px] leading-relaxed text-gray-300 border-l-2 border-blue-500';
+                div.innerText = facts[idx];
+                container.appendChild(div);
+                setTimeout(() => div.classList.add('show'), i * 150);
+                
+                currentFactIdx++;
+                if (currentFactIdx >= shuffledFacts.length) {
+                    shuffledFacts = shuffle([...Array(facts.length).keys()]);
+                    currentFactIdx = 0;
+                }
+            }
+        }
+
+        function updateGame() {
+            const card = document.getElementById('gameCard');
+            const rightStack = document.getElementById('dlcStackRight');
+            const leftStack = document.getElementById('dlcStackLeft');
+            
+            card.classList.add('fade-out');
+            rightStack.innerHTML = '';
+            leftStack.innerHTML = '';
+
+            setTimeout(() => {
+                const game = visibleGames[shuffledGames[currentGameIdx]];
+                card.style.backgroundImage = `url('${game.img}')`;
+                card.style.backgroundSize = game.zoomFix ? 'contain' : 'cover';
+                card.style.backgroundRepeat = 'no-repeat';
+                card.classList.toggle('legendary', game.rarity === 'legendary');
+                
+                document.getElementById('gameTitle').innerText = game.title;
+                document.getElementById('gameCategory').innerText = game.category;
+                
+                let bundlePrice = game.price;
+                if (game.dlcs) game.dlcs.forEach(d => bundlePrice += (d.price || 0));
+                document.getElementById('priceBadge').innerText = bundlePrice === 0 ? "FREE ARTIFACT" : `$${bundlePrice.toFixed(2)} CAD`;
+                
+                if (game.dlcs) {
+                    document.getElementById('dlcCount').innerText = `${game.dlcs.length} DLC${game.dlcs.length !== 1 ? "S" : ""} DETECTED`;
+                    game.dlcs.forEach((dlc, i) => {
+                        const d = document.createElement('div');
+                        d.className = 'mini-dlc';
+                        if (dlc.img) d.style.backgroundImage = `url('${dlc.img}')`;
+                        const targetStack = dlc.side === 'left' ? leftStack : rightStack;
+                        targetStack.appendChild(d);
+                        setTimeout(() => d.classList.add('show'), i * 100);
+                    });
+                } else {
+                    document.getElementById('dlcCount').innerText = "NO DLC DETECTED";
+                }
+
+                card.classList.remove('fade-out');
+                card.classList.add('fade-in');
+
+                if (currentGameIdx % 2 === 0) updateFacts();
+                
+                currentGameIdx++;
+                if (currentGameIdx >= shuffledGames.length) {
+                    shuffledGames = shuffle([...Array(visibleGames.length).keys()]);
+                    currentGameIdx = 0;
+                }
+                
+                // Trigger preload for NEXT set
+                preloadNextSlides();
+                
+            }, 800);
+        }
+
+        refreshShuffles();
+        calculateVault();
+        preloadNextSlides(); // Preload immediately on load
+        updateGame();
+        setInterval(updateGame, 6000);
+
+        const bundle = document.getElementById('artifactBundle');
+        const card = document.getElementById('gameCard');
+
+        window.addEventListener('mousemove', (e) => {
+            const rect = bundle.getBoundingClientRect();
+            const rotateY = (e.clientX - (rect.left + rect.width / 2)) / 15;
+            const rotateX = ((rect.top + rect.height / 2) - e.clientY) / 15;
+            bundle.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.03)`;
+            
+            const cardRect = card.getBoundingClientRect();
+            card.style.setProperty('--shine-pos-x', `${((e.clientX - cardRect.left) / cardRect.width) * 100}%`);
+            card.style.setProperty('--shine-pos-y', `${((e.clientY - cardRect.top) / cardRect.height) * 100}%`);
+            card.style.setProperty('--shine-opacity', '1');
+        });
+
+        window.addEventListener('mouseout', () => {
+            bundle.style.transform = `rotateX(0deg) rotateY(0deg) scale(1)`;
+            card.style.setProperty('--shine-opacity', '0');
+        });
+    </script>
+</body>
+</html>
